@@ -1,0 +1,6 @@
+streamlit==1.44.0
+langchain==0.1.0
+langchain-community==0.0.10
+huggingface-hub==0.20.2
+transformers==4.31.0
+sentence-transformers==2.2.2 
