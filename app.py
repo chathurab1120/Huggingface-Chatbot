@@ -1,41 +1,68 @@
-import os
 import streamlit as st
-from langchain import HuggingFaceHub, PromptTemplate, LLMChain
+from transformers import AutoModelForSeq2SeqGeneration, AutoTokenizer
 
 # Configure page
 st.set_page_config(page_title="Hugging Face Chatbot", page_icon="🤖")
 
-# Set up the model
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
+# Initialize model and tokenizer
+@st.cache_resource
+def load_model():
+    model = AutoModelForSeq2SeqGeneration.from_pretrained("google/flan-t5-small")
+    tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
+    return model, tokenizer
 
-# Initialize Hugging Face
-llm = HuggingFaceHub(
-    repo_id="google/flan-t5-small",
-    model_kwargs={"temperature": 0.5, "max_length": 128}
-)
+try:
+    model, tokenizer = load_model()
+except Exception as e:
+    st.error("Error loading the model. Please try again later.")
+    st.stop()
 
-# Create the prompt template
-template = """Question: {question}
-Answer: Let me think about this."""
-
-prompt = PromptTemplate(template=template, input_variables=["question"])
-llm_chain = LLMChain(prompt=prompt, llm=llm)
+# Function to get model response
+def get_response(question):
+    try:
+        # Tokenize input
+        inputs = tokenizer(question, return_tensors="pt", max_length=512, truncation=True)
+        
+        # Generate response
+        outputs = model.generate(
+            inputs.input_ids,
+            max_length=128,
+            temperature=0.7,
+            num_return_sequences=1
+        )
+        
+        # Decode response
+        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        return response
+    except Exception as e:
+        return "I apologize, but I encountered an error. Please try asking your question differently."
 
 # Streamlit UI
 st.title("💬 Chatbot")
 st.write("I'm a friendly chatbot powered by Hugging Face. Ask me anything!")
 
-# Get user input
-question = st.text_input("What's your question?")
+# Initialize session state for conversation
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
 
-if question:
-    try:
+# Display chat history
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.write(message["content"])
+
+# Get user input
+if question := st.chat_input("What's your question?"):
+    # Display user message
+    with st.chat_message("user"):
+        st.write(question)
+    st.session_state.messages.append({"role": "user", "content": question})
+
+    # Display assistant response
+    with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
-            # Get response from the model
-            response = llm_chain.run(question)
-            st.write("Answer:", response)
-    except Exception as e:
-        st.error("Sorry, something went wrong. Please try again.")
+            response = get_response(question)
+            st.write(response)
+    st.session_state.messages.append({"role": "assistant", "content": response})
 
 # Function to display SVG
 def render_svg():
@@ -147,7 +174,7 @@ with st.form(key='my_form', clear_on_submit=True):
         
         # Generate response
         with st.spinner("Thinking..."):
-            response = llm_chain.run(question=user_question)
+            response = get_response(user_question)
         
         # Add bot response to conversation
         st.session_state.conversation.append({"role": "Chatbot", "content": f"**Chatbot:** {response}"})
