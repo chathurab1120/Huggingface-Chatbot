@@ -1,17 +1,28 @@
 import os
 import streamlit as st
-from langchain import HuggingFaceHub, PromptTemplate, LLMChain
+from langchain.llms import HuggingFaceHub
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
 import base64
 
-# Get API key from Streamlit secrets and set it in environment
-HUGGINGFACEHUB_API_TOKEN = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = HUGGINGFACEHUB_API_TOKEN
+# Get API key from Streamlit secrets
+try:
+    HUGGINGFACEHUB_API_TOKEN = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
+    os.environ["HUGGINGFACEHUB_API_TOKEN"] = HUGGINGFACEHUB_API_TOKEN
+except Exception as e:
+    st.error("Please set your Hugging Face API token in the secrets.")
+    st.stop()
 
 # Initialize the Hugging Face model
-llm = HuggingFaceHub(
-    repo_id="google/flan-t5-small",
-    model_kwargs={"temperature": 0.5, "max_length": 128}
-)
+try:
+    llm = HuggingFaceHub(
+        repo_id="google/flan-t5-small",
+        model_kwargs={"temperature": 0.5, "max_length": 128},
+        huggingfacehub_api_token=HUGGINGFACEHUB_API_TOKEN
+    )
+except Exception as e:
+    st.error(f"Error initializing the model. Please check your API token and try again.")
+    st.stop()
 
 # Create the prompt template and chain
 prompt = PromptTemplate(
