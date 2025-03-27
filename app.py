@@ -1,7 +1,8 @@
 import os
 import streamlit as st
-from langchain import HuggingFaceHub
-from langchain import PromptTemplate, LLMChain
+from langchain.llms import HuggingFaceHub
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
 import base64
 
 # Get API key from Streamlit secrets and set it in environment
@@ -13,16 +14,13 @@ except Exception as e:
     st.stop()
 
 # Choose a Hugging Face model
-HUGGINGFACE_MODEL = "google/flan-t5-small"  # Using the smallest model for compatibility
+HUGGINGFACE_MODEL = "google/flan-t5-small"
 
 # Initialize the Hugging Face language model
 try:
     llm = HuggingFaceHub(
         repo_id=HUGGINGFACE_MODEL,
-        model_kwargs={
-            "temperature": 0.5,
-            "max_length": 128
-        }
+        model_kwargs={"temperature": 0.5, "max_length": 128}
     )
 except Exception as e:
     st.error(f"Error initializing the model: {str(e)}")
