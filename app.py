@@ -5,31 +5,33 @@ from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 import base64
 
-# Get API key from Streamlit secrets
-try:
-    HUGGINGFACEHUB_API_TOKEN = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
-    os.environ["HUGGINGFACEHUB_API_TOKEN"] = HUGGINGFACEHUB_API_TOKEN
-except Exception as e:
-    st.error("Please set your Hugging Face API token in the secrets.")
-    st.stop()
+# Set the API token first
+os.environ["HUGGINGFACEHUB_API_TOKEN"] = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
 
-# Initialize the Hugging Face model
-try:
-    llm = HuggingFaceHub(
-        repo_id="google/flan-t5-small",
-        model_kwargs={"temperature": 0.5, "max_length": 128},
-        huggingfacehub_api_token=HUGGINGFACEHUB_API_TOKEN
-    )
-except Exception as e:
-    st.error(f"Error initializing the model. Please check your API token and try again.")
-    st.stop()
+# Basic Streamlit interface
+st.title("Hugging Face Chatbot")
+st.write("Ask me anything!")
 
-# Create the prompt template and chain
+# Initialize the model
+llm = HuggingFaceHub(
+    repo_id="google/flan-t5-small",
+    model_kwargs={"temperature": 0.5, "max_length": 128}
+)
+
+# Create chain
 prompt = PromptTemplate(
-    input_variables=['question'],
-    template='Question: {question}'
+    input_variables=["question"],
+    template="Question: {question}\nAnswer:"
 )
 chain = LLMChain(llm=llm, prompt=prompt)
+
+# Get user input
+user_question = st.text_input("Your question:")
+
+if user_question:
+    with st.spinner("Thinking..."):
+        response = chain.run(question=user_question)
+        st.write(response)
 
 # Function to display SVG
 def render_svg():
@@ -108,10 +110,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-# App title and introduction
-st.title("Hugging Face Chatbot")
-st.markdown("Ask me anything!")
 
 # Display SVG icon
 st.markdown(f'<div class="centered">{render_svg()}</div>', unsafe_allow_html=True)
