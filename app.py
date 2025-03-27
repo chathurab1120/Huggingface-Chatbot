@@ -1,5 +1,5 @@
 import streamlit as st
-from transformers import AutoModelForSeq2SeqGeneration, AutoTokenizer
+from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
 # Configure page
 st.set_page_config(page_title="Hugging Face Chatbot", page_icon="🤖")
@@ -7,15 +7,20 @@ st.set_page_config(page_title="Hugging Face Chatbot", page_icon="🤖")
 # Initialize model and tokenizer
 @st.cache_resource
 def load_model():
-    model = AutoModelForSeq2SeqGeneration.from_pretrained("google/flan-t5-small")
-    tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
-    return model, tokenizer
+    try:
+        tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
+        model = AutoModelForSeq2SeqLM.from_pretrained(
+            "google/flan-t5-small",
+            device_map="auto",
+            torch_dtype="auto"
+        )
+        return model, tokenizer
+    except Exception as e:
+        st.error(f"Error loading model: {str(e)}")
+        st.stop()
 
-try:
-    model, tokenizer = load_model()
-except Exception as e:
-    st.error("Error loading the model. Please try again later.")
-    st.stop()
+# Load model and tokenizer
+model, tokenizer = load_model()
 
 # Function to get model response
 def get_response(question):
@@ -28,41 +33,28 @@ def get_response(question):
             inputs.input_ids,
             max_length=128,
             temperature=0.7,
-            num_return_sequences=1
+            num_return_sequences=1,
+            do_sample=True
         )
         
         # Decode response
         response = tokenizer.decode(outputs[0], skip_special_tokens=True)
         return response
     except Exception as e:
+        st.error(f"Error generating response: {str(e)}")
         return "I apologize, but I encountered an error. Please try asking your question differently."
 
 # Streamlit UI
 st.title("💬 Chatbot")
 st.write("I'm a friendly chatbot powered by Hugging Face. Ask me anything!")
 
-# Initialize session state for conversation
-if 'messages' not in st.session_state:
-    st.session_state.messages = []
-
-# Display chat history
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.write(message["content"])
-
 # Get user input
-if question := st.chat_input("What's your question?"):
-    # Display user message
-    with st.chat_message("user"):
-        st.write(question)
-    st.session_state.messages.append({"role": "user", "content": question})
+user_question = st.text_input("Your question:", key="user_input")
 
-    # Display assistant response
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            response = get_response(question)
-            st.write(response)
-    st.session_state.messages.append({"role": "assistant", "content": response})
+if user_question:
+    with st.spinner("Thinking..."):
+        response = get_response(user_question)
+        st.write("Answer:", response)
 
 # Function to display SVG
 def render_svg():

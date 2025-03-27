@@ -2,4 +2,6 @@ streamlit==1.22.0
 transformers==4.27.4
 torch==1.13.1
 protobuf==3.20.0
-numpy==1.23.5 
+numpy==1.23.5
+sentencepiece==0.1.99
+accelerate==0.18.0 
