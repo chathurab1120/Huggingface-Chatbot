@@ -1,6 +1,8 @@
 streamlit==1.18.0
-langchain==0.0.150
+langchain==0.0.148
 huggingface-hub==0.13.0
 transformers==4.28.1
 protobuf==3.20.0
-pydantic==1.10.2 
+pydantic==1.10.7
+typing-inspect==0.8.0
+typing-extensions==4.5.0 

@@ -1,39 +1,24 @@
 import os
 import streamlit as st
-from langchain.llms import HuggingFaceHub
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
+from langchain import HuggingFaceHub, PromptTemplate, LLMChain
 import base64
 
 # Get API key from Streamlit secrets and set it in environment
-try:
-    HUGGINGFACEHUB_API_TOKEN = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
-    os.environ["HUGGINGFACEHUB_API_TOKEN"] = HUGGINGFACEHUB_API_TOKEN
-except Exception as e:
-    st.error("Please set your Hugging Face API token in the secrets.")
-    st.stop()
+HUGGINGFACEHUB_API_TOKEN = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
+os.environ["HUGGINGFACEHUB_API_TOKEN"] = HUGGINGFACEHUB_API_TOKEN
 
-# Choose a Hugging Face model
-HUGGINGFACE_MODEL = "google/flan-t5-small"
-
-# Initialize the Hugging Face language model
-try:
-    llm = HuggingFaceHub(
-        repo_id=HUGGINGFACE_MODEL,
-        model_kwargs={"temperature": 0.5, "max_length": 128}
-    )
-except Exception as e:
-    st.error(f"Error initializing the model: {str(e)}")
-    st.stop()
-
-# Define the prompt template
-prompt_template = PromptTemplate(
-    input_variables=['question'],
-    template='You are a helpful chatbot. Be concise and direct in your response. Question: {question}'
+# Initialize the Hugging Face model
+llm = HuggingFaceHub(
+    repo_id="google/flan-t5-small",
+    model_kwargs={"temperature": 0.5, "max_length": 128}
 )
 
-# Create the LLMChain
-chain = LLMChain(llm=llm, prompt=prompt_template)
+# Create the prompt template and chain
+prompt = PromptTemplate(
+    input_variables=['question'],
+    template='Question: {question}'
+)
+chain = LLMChain(llm=llm, prompt=prompt)
 
 # Function to display SVG
 def render_svg():
