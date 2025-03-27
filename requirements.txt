@@ -1,6 +1,9 @@
 streamlit==1.22.0
 transformers==4.27.4
-torch==1.13.1
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==1.13.1+cpu
+torchvision==0.14.1+cpu
+torchaudio==0.13.1+cpu
 protobuf==3.20.0
 numpy==1.23.5
 sentencepiece==0.1.99

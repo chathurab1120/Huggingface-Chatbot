@@ -1,5 +1,6 @@
 import streamlit as st
 from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+import torch
 
 # Configure page
 st.set_page_config(page_title="Hugging Face Chatbot", page_icon="🤖")
@@ -11,8 +12,8 @@ def load_model():
         tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
         model = AutoModelForSeq2SeqLM.from_pretrained(
             "google/flan-t5-small",
-            device_map="auto",
-            torch_dtype="auto"
+            low_cpu_mem_usage=True,
+            torch_dtype=torch.float32
         )
         return model, tokenizer
     except Exception as e:
@@ -29,13 +30,14 @@ def get_response(question):
         inputs = tokenizer(question, return_tensors="pt", max_length=512, truncation=True)
         
         # Generate response
-        outputs = model.generate(
-            inputs.input_ids,
-            max_length=128,
-            temperature=0.7,
-            num_return_sequences=1,
-            do_sample=True
-        )
+        with torch.no_grad():
+            outputs = model.generate(
+                inputs.input_ids,
+                max_length=128,
+                temperature=0.7,
+                num_return_sequences=1,
+                do_sample=True
+            )
         
         # Decode response
         response = tokenizer.decode(outputs[0], skip_special_tokens=True)
