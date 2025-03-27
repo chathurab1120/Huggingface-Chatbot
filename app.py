@@ -1,37 +1,41 @@
 import os
 import streamlit as st
-from langchain.llms import HuggingFaceHub
-from langchain.prompts import PromptTemplate
-from langchain.chains import LLMChain
-import base64
+from langchain import HuggingFaceHub, PromptTemplate, LLMChain
 
-# Set the API token first
+# Configure page
+st.set_page_config(page_title="Hugging Face Chatbot", page_icon="🤖")
+
+# Set up the model
 os.environ["HUGGINGFACEHUB_API_TOKEN"] = st.secrets["HUGGINGFACEHUB_API_TOKEN"]
 
-# Basic Streamlit interface
-st.title("Hugging Face Chatbot")
-st.write("Ask me anything!")
-
-# Initialize the model
+# Initialize Hugging Face
 llm = HuggingFaceHub(
     repo_id="google/flan-t5-small",
     model_kwargs={"temperature": 0.5, "max_length": 128}
 )
 
-# Create chain
-prompt = PromptTemplate(
-    input_variables=["question"],
-    template="Question: {question}\nAnswer:"
-)
-chain = LLMChain(llm=llm, prompt=prompt)
+# Create the prompt template
+template = """Question: {question}
+Answer: Let me think about this."""
+
+prompt = PromptTemplate(template=template, input_variables=["question"])
+llm_chain = LLMChain(prompt=prompt, llm=llm)
+
+# Streamlit UI
+st.title("💬 Chatbot")
+st.write("I'm a friendly chatbot powered by Hugging Face. Ask me anything!")
 
 # Get user input
-user_question = st.text_input("Your question:")
+question = st.text_input("What's your question?")
 
-if user_question:
-    with st.spinner("Thinking..."):
-        response = chain.run(question=user_question)
-        st.write(response)
+if question:
+    try:
+        with st.spinner("Thinking..."):
+            # Get response from the model
+            response = llm_chain.run(question)
+            st.write("Answer:", response)
+    except Exception as e:
+        st.error("Sorry, something went wrong. Please try again.")
 
 # Function to display SVG
 def render_svg():
@@ -46,9 +50,6 @@ def render_svg():
     return svg_code
 
 # Configure the Streamlit page with dark theme
-st.set_page_config(page_title="Hugging Face Chatbot", page_icon=":robot_face:", layout="centered")
-
-# Custom CSS for dark theme
 st.markdown(
     """
     <style>
@@ -146,7 +147,7 @@ with st.form(key='my_form', clear_on_submit=True):
         
         # Generate response
         with st.spinner("Thinking..."):
-            response = chain.run(question=user_question)
+            response = llm_chain.run(question=user_question)
         
         # Add bot response to conversation
         st.session_state.conversation.append({"role": "Chatbot", "content": f"**Chatbot:** {response}"})
