@@ -230,8 +230,7 @@ if send_button and user_input:
     # Replace thinking message with the actual response
     ai_thinking_placeholder.empty()
     
-    # Clear the input field by forcing a page rerun
-    st.session_state.user_message = ""
+    # Force a page rerun without trying to reset the text input
     st.experimental_rerun()
 
 # Add information about the technology used
