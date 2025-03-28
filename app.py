@@ -88,26 +88,31 @@ if 'messages' not in st.session_state:
 
 # Display chat history
 for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+    if message["role"] == "user":
+        st.markdown(f"**You:** {message['content']}")
+    else:
+        st.markdown(f"**AI:** {message['content']}")
+    st.markdown("---")
 
-# User input
-prompt = st.chat_input("Ask me anything...")
+# User input with form
+with st.form(key='chat_form', clear_on_submit=True):
+    user_input = st.text_input("Type your message:", key="user_message")
+    submit_button = st.form_submit_button("Send")
 
 # Process user input
-if prompt:
-    # Add user message to chat
-    st.chat_message("user").markdown(prompt)
-    st.session_state.messages.append({"role": "user", "content": prompt})
+if submit_button and user_input:
+    # Add user message to chat history
+    st.session_state.messages.append({"role": "user", "content": user_input})
     
     # Get AI response
-    with st.chat_message("assistant"):
-        with st.spinner("Thinking..."):
-            response = get_ai_response(prompt)
-            st.markdown(response)
+    with st.spinner("AI is thinking..."):
+        ai_response = get_ai_response(user_input)
     
     # Add AI response to chat history
-    st.session_state.messages.append({"role": "assistant", "content": response})
+    st.session_state.messages.append({"role": "assistant", "content": ai_response})
+    
+    # Rerun to update the display with new messages
+    st.rerun()
 
 # Add information about the technology used
 with st.expander("About this GenAI Demo"):
@@ -129,7 +134,7 @@ with st.expander("About this GenAI Demo"):
     This architecture allows for showcasing GenAI capabilities without the overhead of running models locally.
     """)
 
-# Add custom CSS
+# Add custom CSS for styling
 st.markdown("""
 <style>
 .main {
@@ -138,8 +143,10 @@ st.markdown("""
 .stTextInput > div > div > input {
     background-color: #f0f0f0;
 }
-.css-1ec096l {
-    padding-top: 1rem;
+.block-container {
+    max-width: 800px;
+    padding-top: 2rem;
+    padding-bottom: 2rem;
 }
 </style>
 """, unsafe_allow_html=True) 
