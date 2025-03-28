@@ -4,6 +4,7 @@ import json
 import time
 import logging
 import os
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -88,6 +89,13 @@ st.markdown("""
         height: 2.4rem;
         margin-top: 0.8rem;
     }
+    /* Hide the footer made by Streamlit */
+    footer {
+        visibility: hidden;
+    }
+    #MainMenu {
+        visibility: hidden;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -108,6 +116,31 @@ if not API_TOKEN:
 MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
 HEADERS = {"Authorization": f"Bearer {API_TOKEN}"}
 
+# Function to handle basic math operations
+def calculate_expression(expression):
+    # Simple math operations regex
+    addition = re.match(r'^\s*(\d+)\s*\+\s*(\d+)\s*$', expression)
+    subtraction = re.match(r'^\s*(\d+)\s*\-\s*(\d+)\s*$', expression)
+    multiplication = re.match(r'^\s*(\d+)\s*\*\s*(\d+)\s*$', expression)
+    division = re.match(r'^\s*(\d+)\s*\/\s*(\d+)\s*$', expression)
+    
+    if addition:
+        a, b = int(addition.group(1)), int(addition.group(2))
+        return f"{a} + {b} = {a + b}"
+    elif subtraction:
+        a, b = int(subtraction.group(1)), int(subtraction.group(2))
+        return f"{a} - {b} = {a - b}"
+    elif multiplication:
+        a, b = int(multiplication.group(1)), int(multiplication.group(2))
+        return f"{a} * {b} = {a * b}"
+    elif division:
+        a, b = int(division.group(1)), int(division.group(2))
+        if b == 0:
+            return "Division by zero is not allowed"
+        return f"{a} / {b} = {a / b}"
+    
+    return None  # Not a simple math expression
+
 # Function to query the model
 def query_model(payload):
     try:
@@ -126,12 +159,23 @@ def query_model(payload):
         result = response.json()
         logger.info(f"Response from API: {result}")
         return result
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request error: {str(e)}")
+        return {"error": f"Network error: {str(e)}"}
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON decode error: {str(e)}")
+        return {"error": "Failed to parse response from API"}
     except Exception as e:
         logger.error(f"Error querying model: {str(e)}")
         return {"error": f"Error: {str(e)}"}
 
 # Function to get a response from the model
 def get_ai_response(question):
+    # First check if it's a simple math question that we can handle directly
+    math_result = calculate_expression(question)
+    if math_result:
+        return math_result
+    
     # Prepare payload
     payload = {
         "inputs": question,
@@ -162,6 +206,8 @@ if 'messages' not in st.session_state:
     st.session_state.messages = []
 if 'input' not in st.session_state:
     st.session_state.input = ""
+if 'submitted' not in st.session_state:
+    st.session_state.submitted = False
 
 # Display chat history with better styling
 for message in st.session_state.messages:
@@ -178,37 +224,42 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-# Function to process input
-def process_input():
-    if st.session_state.input.strip():
-        # Get the user input
-        user_input = st.session_state.input
-        
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        
-        # Get AI response
-        with st.spinner("AI is thinking..."):
-            ai_response = get_ai_response(user_input)
-        
-        # Add AI response to chat history
-        st.session_state.messages.append({"role": "assistant", "content": ai_response})
+# Function to handle form submission (callback)
+def handle_submit():
+    st.session_state.submitted = True
 
-# Create the form with Enter key support - Simplified for compatibility
+# Create the input form
 with st.form(key="chat_form", clear_on_submit=True):
     # Text input
-    st.text_input(
+    user_input = st.text_input(
         "Type your message:", 
         key="input",
-        help="Press Enter to submit your message"
+        help="Press Enter or click Send to submit your message"
     )
     
-    # Single submit button
-    submitted = st.form_submit_button("Send")
+    # Submit button
+    submit_button = st.form_submit_button("Send", on_click=handle_submit)
+
+# Process the submission outside the form
+if st.session_state.submitted and st.session_state.input:
+    # Get the user input
+    current_input = st.session_state.input
     
-    # Process input on button click
-    if submitted:
-        process_input()
+    # Add user message to chat history
+    st.session_state.messages.append({"role": "user", "content": current_input})
+    
+    # Get AI response
+    with st.spinner("AI is thinking..."):
+        ai_response = get_ai_response(current_input)
+    
+    # Add AI response to chat history
+    st.session_state.messages.append({"role": "assistant", "content": ai_response})
+    
+    # Reset the submission flag
+    st.session_state.submitted = False
+    
+    # Force a rerun to update the chat display
+    st.rerun()
 
 # Add information about the technology used
 with st.expander("About this GenAI Demo"):
