@@ -1,6 +1,5 @@
 import streamlit as st
-from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-import torch
+from transformers import T5ForConditionalGeneration, T5Tokenizer
 
 # Configure page
 st.set_page_config(page_title="Hugging Face Chatbot", page_icon="🤖")
@@ -9,11 +8,10 @@ st.set_page_config(page_title="Hugging Face Chatbot", page_icon="🤖")
 @st.cache_resource
 def load_model():
     try:
-        tokenizer = AutoTokenizer.from_pretrained("google/flan-t5-small")
-        model = AutoModelForSeq2SeqLM.from_pretrained(
+        tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-small")
+        model = T5ForConditionalGeneration.from_pretrained(
             "google/flan-t5-small",
-            low_cpu_mem_usage=True,
-            torch_dtype=torch.float32
+            low_cpu_mem_usage=True
         )
         return model, tokenizer
     except Exception as e:
@@ -30,14 +28,11 @@ def get_response(question):
         inputs = tokenizer(question, return_tensors="pt", max_length=512, truncation=True)
         
         # Generate response
-        with torch.no_grad():
-            outputs = model.generate(
-                inputs.input_ids,
-                max_length=128,
-                temperature=0.7,
-                num_return_sequences=1,
-                do_sample=True
-            )
+        outputs = model.generate(
+            inputs.input_ids,
+            max_length=128,
+            num_return_sequences=1
+        )
         
         # Decode response
         response = tokenizer.decode(outputs[0], skip_special_tokens=True)
