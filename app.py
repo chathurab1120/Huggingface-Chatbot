@@ -1,210 +1,145 @@
 import streamlit as st
-from transformers import AutoTokenizer, AutoModelForSeq2SeqGeneration
-import sys
+import requests
+import json
+import time
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Configure page
-st.set_page_config(page_title="Hugging Face Chatbot", page_icon="🤖")
-
-# Initialize model and tokenizer
-@st.cache_resource
-def load_model():
-    try:
-        # Log Python version and path
-        logger.info(f"Python version: {sys.version}")
-        logger.info(f"Python path: {sys.path}")
-        
-        # First try to load tokenizer
-        logger.info("Loading tokenizer...")
-        tokenizer = AutoTokenizer.from_pretrained(
-            "google/flan-t5-small",
-            use_fast=False  # Use the slow tokenizer which has fewer dependencies
-        )
-        
-        # Then load model
-        logger.info("Loading model...")
-        model = AutoModelForSeq2SeqGeneration.from_pretrained(
-            "google/flan-t5-small",
-            low_cpu_mem_usage=True
-        )
-        
-        logger.info("Model and tokenizer loaded successfully")
-        return model, tokenizer
-    except Exception as e:
-        logger.error(f"Error loading model: {str(e)}")
-        st.error(f"Error loading model: {str(e)}")
-        st.stop()
-
-# Load model and tokenizer
-try:
-    model, tokenizer = load_model()
-    st.success("Model loaded successfully!")
-except Exception as e:
-    st.error("Failed to load the model. Please check the logs for details.")
-    st.stop()
-
-# Function to get model response
-def get_response(question):
-    try:
-        # Log the question
-        logger.info(f"Processing question: {question}")
-        
-        # Tokenize input
-        inputs = tokenizer(
-            question,
-            return_tensors="pt",
-            max_length=512,
-            truncation=True,
-            padding=True
-        )
-        
-        # Generate response
-        outputs = model.generate(
-            inputs.input_ids,
-            max_length=128,
-            num_return_sequences=1,
-            pad_token_id=tokenizer.pad_token_id,
-            eos_token_id=tokenizer.eos_token_id
-        )
-        
-        # Decode response
-        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        logger.info(f"Generated response: {response}")
-        return response
-    except Exception as e:
-        logger.error(f"Error generating response: {str(e)}")
-        return f"I apologize, but I encountered an error: {str(e)}"
-
-# Streamlit UI
-st.title("💬 Chatbot")
-st.write("I'm a friendly chatbot powered by Hugging Face. Ask me anything!")
-
-# Get user input
-user_question = st.text_input("Your question:", key="user_input")
-
-if user_question:
-    with st.spinner("Thinking..."):
-        response = get_response(user_question)
-        st.write("Answer:", response)
-
-# Function to display SVG
-def render_svg():
-    svg_code = '''
-    <svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-      <rect width="100" height="100" rx="20" fill="#333333"/>
-      <circle cx="30" cy="35" r="8" fill="#7792E3"/>
-      <circle cx="70" cy="35" r="8" fill="#7792E3"/>
-      <path d="M25,60 Q50,80 75,60" stroke="#7792E3" stroke-width="4" fill="transparent"/>
-    </svg>
-    '''
-    return svg_code
-
-# Configure the Streamlit page with dark theme
-st.markdown(
-    """
-    <style>
-    body {
-        background-color: #1E1E1E;
-        color: #FFFFFF;
-    }
-    .stTextInput > div > div > input {
-        background-color: #333333;
-        color: #FFFFFF;
-    }
-    .stButton > button {
-        background-color: #555555;
-        color: #FFFFFF;
-        border: none;
-        border-radius: 5px;
-        padding: 0.5rem 1rem;
-        margin-left: 0.5rem;
-    }
-    .stButton > button:hover {
-        background-color: #777777;
-    }
-    .stChatMessage {
-        background-color: #2C2C2C;
-        color: #FFFFFF;
-        border-radius: 5px;
-        padding: 10px;
-        margin-bottom: 10px;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        max-width: 100%;
-        overflow-wrap: break-word;
-    }
-    .centered {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        margin: 1rem 0;
-    }
-    .container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 1rem;
-    }
-    .input-container {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
-    .user-message {
-        background-color: #2C2C2C;
-        margin-bottom: 8px;
-    }
-    .bot-message {
-        background-color: #383838;
-        margin-bottom: 16px;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
+st.set_page_config(
+    page_title="AI Chatbot with HuggingFace API",
+    page_icon="🤖",
+    layout="centered"
 )
 
-# Display SVG icon
-st.markdown(f'<div class="centered">{render_svg()}</div>', unsafe_allow_html=True)
+# Get API token from Streamlit secrets
+API_TOKEN = st.secrets.get("HUGGINGFACEHUB_API_TOKEN", None)
+if not API_TOKEN:
+    st.error("API token not found. Please set HUGGINGFACEHUB_API_TOKEN in your Streamlit secrets.")
+    st.stop()
 
-# Add welcoming text
-st.markdown("<h3 style='color:#AAAAAA;'>How can I help you today?</h3>", unsafe_allow_html=True)
+# Set model parameters
+MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
+HEADERS = {"Authorization": f"Bearer {API_TOKEN}"}
+
+# Function to query the model
+def query_model(payload):
+    try:
+        logger.info(f"Querying model with payload: {payload}")
+        response = requests.post(MODEL_URL, headers=HEADERS, json=payload)
+        
+        # Check if the model is still loading
+        if response.status_code == 503:
+            logger.warning("Model is loading...")
+            return {"error": "Model is loading, please try again in a few seconds."}
+        
+        # Check for other errors
+        response.raise_for_status()
+        
+        # Parse response
+        result = response.json()
+        logger.info(f"Response from API: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error querying model: {str(e)}")
+        return {"error": f"Error: {str(e)}"}
+
+# Function to get a response from the model
+def get_ai_response(question):
+    # Prepare payload
+    payload = {
+        "inputs": question,
+        "parameters": {
+            "max_length": 150,
+            "temperature": 0.7,
+            "top_p": 0.9,
+            "do_sample": True
+        }
+    }
+    
+    # Query model
+    result = query_model(payload)
+    
+    # Check for errors
+    if "error" in result:
+        return f"Sorry, I encountered an error: {result['error']}"
+    
+    # Extract response
+    if isinstance(result, list) and len(result) > 0:
+        # The API returns a list of generated texts
+        return result[0].get("generated_text", "Sorry, I couldn't generate a response")
+    else:
+        return "Sorry, I received an unexpected response format"
+
+# Add a title and description
+st.title("🤖 GenAI Chatbot")
+st.write("""
+This chatbot is powered by a Hugging Face language model (flan-t5-base). 
+It demonstrates integration with state-of-the-art AI technologies.
+""")
 
 # Initialize session state for conversation history
-if 'conversation' not in st.session_state:
-    st.session_state.conversation = []
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
 
-# Display conversation history
-for i, message in enumerate(st.session_state.conversation):
-    if i % 2 == 0:  # User message
-        st.markdown(f"<div class='stChatMessage user-message'>{message['content']}</div>", unsafe_allow_html=True)
-    else:  # Bot message
-        st.markdown(f"<div class='stChatMessage bot-message'>{message['content']}</div>", unsafe_allow_html=True)
+# Display chat history
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-# Create a form for input
-with st.form(key='my_form', clear_on_submit=True):
-    # Create columns for input and button
-    col1, col2 = st.columns([6, 1])
+# User input
+prompt = st.chat_input("Ask me anything...")
+
+# Process user input
+if prompt:
+    # Add user message to chat
+    st.chat_message("user").markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
     
-    # User input and button
-    with col1:
-        user_question = st.text_input("Your Question:", key="input_field")
-    with col2:
-        submit_button = st.form_submit_button("Ask")
-
-    # Handle input submission
-    if submit_button and user_question:
-        # Add user message to conversation
-        st.session_state.conversation.append({"role": "You", "content": f"**You:** {user_question}"})
-        
-        # Generate response
+    # Get AI response
+    with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
-            response = get_response(user_question)
-        
-        # Add bot response to conversation
-        st.session_state.conversation.append({"role": "Chatbot", "content": f"**Chatbot:** {response}"})
-        
-        # Rerun to update the conversation
-        st.rerun() 
+            response = get_ai_response(prompt)
+            st.markdown(response)
+    
+    # Add AI response to chat history
+    st.session_state.messages.append({"role": "assistant", "content": response})
+
+# Add information about the technology used
+with st.expander("About this GenAI Demo"):
+    st.write("""
+    ### Technology Stack
+    
+    This project demonstrates the integration of modern AI technologies:
+    
+    - **Language Model**: Google's Flan-T5 (via Hugging Face API)
+    - **Framework**: Streamlit for the interactive web interface
+    - **Deployment**: Streamlit Cloud
+    
+    ### How It Works
+    
+    1. User inputs are sent to the Hugging Face API
+    2. The model processes the input and generates a response
+    3. The interface displays the response in a conversational format
+    
+    This architecture allows for showcasing GenAI capabilities without the overhead of running models locally.
+    """)
+
+# Add custom CSS
+st.markdown("""
+<style>
+.main {
+    background-color: #f5f5f5;
+}
+.stTextInput > div > div > input {
+    background-color: #f0f0f0;
+}
+.css-1ec096l {
+    padding-top: 1rem;
+}
+</style>
+""", unsafe_allow_html=True) 
