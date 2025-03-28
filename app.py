@@ -59,7 +59,7 @@ st.markdown("""
         background-color: #121212;
     }
     p, h1, h2, h3, h4, h5, h6 {
-        color: #FFFFFF;
+        color: #FFFFFF !important;
     }
     .streamlit-expanderHeader {
         color: #FFFFFF;
@@ -77,19 +77,43 @@ st.markdown("""
     .user-message {
         background-color: #2C2C2C;
         border-left: 5px solid #4CAF50;
+        color: #FFFFFF !important;
     }
     .ai-message {
         background-color: #1E1E1E;
         border-left: 5px solid #2196F3;
+        color: #FFFFFF !important;
     }
-    /* Styles to improve button appearance */
+    /* Make all text bright white */
+    div[data-testid="stMarkdownContainer"] {
+        color: #FFFFFF !important;
+    }
+    /* Ensure strong tags (bold text) is also white */
+    strong {
+        color: #FFFFFF !important;
+    }
+    /* Make any paragraphs inside message containers white */
+    .message-container p {
+        color: #FFFFFF !important;
+    }
+    /* Ensure any generated text is white */
+    .element-container {
+        color: #FFFFFF !important;
+    }
+    /* Style button */
     .stButton>button {
         width: 100%;
         border-radius: 5px;
         height: 2.4rem;
         margin-top: 0.8rem;
+        background-color: #2196F3;
+        color: #FFFFFF;
+        border: none;
     }
-    /* Hide the footer made by Streamlit */
+    .stButton>button:hover {
+        background-color: #1976D2;
+    }
+    /* Hide Streamlit branding */
     footer {
         visibility: hidden;
     }
