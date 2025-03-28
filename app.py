@@ -81,6 +81,13 @@ st.markdown("""
         background-color: #1E1E1E;
         border-left: 5px solid #2196F3;
     }
+    /* Styles to improve button appearance */
+    .stButton>button {
+        width: 100%;
+        border-radius: 5px;
+        height: 2.4rem;
+        margin-top: 0.8rem;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -186,11 +193,8 @@ def process_input():
         
         # Add AI response to chat history
         st.session_state.messages.append({"role": "assistant", "content": ai_response})
-        
-        # Reset input
-        st.session_state.input = ""
 
-# Create the form with Enter key support
+# Create the form with Enter key support - Simplified for compatibility
 with st.form(key="chat_form", clear_on_submit=True):
     # Text input
     st.text_input(
@@ -199,17 +203,11 @@ with st.form(key="chat_form", clear_on_submit=True):
         help="Press Enter to submit your message"
     )
     
-    # Submit buttons - hidden and visible
-    cols = st.columns([6, 1])
-    with cols[0]:
-        # Hidden submit for Enter key
-        submitted = st.form_submit_button("Submit", type="primary", label_visibility="collapsed")
-    with cols[1]:
-        # Visible send button
-        send_button = st.form_submit_button("Send")
+    # Single submit button
+    submitted = st.form_submit_button("Send")
     
-    # Process input on either button click
-    if submitted or send_button:
+    # Process input on button click
+    if submitted:
         process_input()
 
 # Add information about the technology used
