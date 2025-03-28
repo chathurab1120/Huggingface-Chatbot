@@ -1,5 +1,11 @@
 import streamlit as st
 from transformers import T5ForConditionalGeneration, T5Tokenizer
+import sys
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Configure page
 st.set_page_config(page_title="Hugging Face Chatbot", page_icon="🤖")
@@ -8,38 +14,72 @@ st.set_page_config(page_title="Hugging Face Chatbot", page_icon="🤖")
 @st.cache_resource
 def load_model():
     try:
-        tokenizer = T5Tokenizer.from_pretrained("google/flan-t5-small")
+        # Log Python version and path
+        logger.info(f"Python version: {sys.version}")
+        logger.info(f"Python path: {sys.path}")
+        
+        # First try to load tokenizer
+        logger.info("Loading tokenizer...")
+        tokenizer = T5Tokenizer.from_pretrained(
+            "google/flan-t5-small",
+            model_max_length=512,
+            legacy_format=True
+        )
+        
+        # Then load model
+        logger.info("Loading model...")
         model = T5ForConditionalGeneration.from_pretrained(
             "google/flan-t5-small",
-            low_cpu_mem_usage=True
+            low_cpu_mem_usage=True,
+            return_dict=True
         )
+        
+        logger.info("Model and tokenizer loaded successfully")
         return model, tokenizer
     except Exception as e:
+        logger.error(f"Error loading model: {str(e)}")
         st.error(f"Error loading model: {str(e)}")
         st.stop()
 
 # Load model and tokenizer
-model, tokenizer = load_model()
+try:
+    model, tokenizer = load_model()
+    st.success("Model loaded successfully!")
+except Exception as e:
+    st.error("Failed to load the model. Please check the logs for details.")
+    st.stop()
 
 # Function to get model response
 def get_response(question):
     try:
+        # Log the question
+        logger.info(f"Processing question: {question}")
+        
         # Tokenize input
-        inputs = tokenizer(question, return_tensors="pt", max_length=512, truncation=True)
+        inputs = tokenizer(
+            question,
+            return_tensors="pt",
+            max_length=512,
+            truncation=True,
+            padding=True
+        )
         
         # Generate response
         outputs = model.generate(
             inputs.input_ids,
             max_length=128,
-            num_return_sequences=1
+            num_return_sequences=1,
+            pad_token_id=tokenizer.pad_token_id,
+            eos_token_id=tokenizer.eos_token_id
         )
         
         # Decode response
         response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        logger.info(f"Generated response: {response}")
         return response
     except Exception as e:
-        st.error(f"Error generating response: {str(e)}")
-        return "I apologize, but I encountered an error. Please try asking your question differently."
+        logger.error(f"Error generating response: {str(e)}")
+        return f"I apologize, but I encountered an error: {str(e)}"
 
 # Streamlit UI
 st.title("💬 Chatbot")

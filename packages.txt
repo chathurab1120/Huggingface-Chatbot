@@ -1,2 +1,6 @@
 python3-dev
-build-essential 
+build-essential
+cmake
+pkg-config
+libprotobuf-dev
+protobuf-compiler 
