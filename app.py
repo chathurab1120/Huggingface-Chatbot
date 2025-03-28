@@ -106,15 +106,9 @@ This chatbot is powered by a Hugging Face language model (flan-t5-base).
 It demonstrates integration with state-of-the-art AI technologies.
 """)
 
-# Get API token from Streamlit secrets
-API_TOKEN = st.secrets.get("HUGGINGFACEHUB_API_TOKEN", None)
-if not API_TOKEN:
-    st.error("API token not found. Please set HUGGINGFACEHUB_API_TOKEN in your Streamlit secrets.")
-    st.stop()
-
-# Set model parameters
-MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
-HEADERS = {"Authorization": f"Bearer {API_TOKEN}"}
+# Initialize session states
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
 
 # Function to handle basic math operations
 def calculate_expression(expression):
@@ -141,40 +135,21 @@ def calculate_expression(expression):
     
     return None  # Not a simple math expression
 
-# Function to query the model
-def query_model(payload):
-    try:
-        logger.info(f"Querying model with payload: {payload}")
-        response = requests.post(MODEL_URL, headers=HEADERS, json=payload)
-        
-        # Check if the model is still loading
-        if response.status_code == 503:
-            logger.warning("Model is loading...")
-            return {"error": "Model is loading, please try again in a few seconds."}
-        
-        # Check for other errors
-        response.raise_for_status()
-        
-        # Parse response
-        result = response.json()
-        logger.info(f"Response from API: {result}")
-        return result
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Request error: {str(e)}")
-        return {"error": f"Network error: {str(e)}"}
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON decode error: {str(e)}")
-        return {"error": "Failed to parse response from API"}
-    except Exception as e:
-        logger.error(f"Error querying model: {str(e)}")
-        return {"error": f"Error: {str(e)}"}
-
 # Function to get a response from the model
 def get_ai_response(question):
-    # First check if it's a simple math question that we can handle directly
+    # Check for API token
+    API_TOKEN = st.secrets.get("HUGGINGFACEHUB_API_TOKEN", None)
+    if not API_TOKEN:
+        return "Error: API token not found in secrets. Please add your HUGGINGFACEHUB_API_TOKEN."
+    
+    # Check for math expression first
     math_result = calculate_expression(question)
     if math_result:
         return math_result
+    
+    # Set model parameters
+    MODEL_URL = "https://api-inference.huggingface.co/models/google/flan-t5-base"
+    HEADERS = {"Authorization": f"Bearer {API_TOKEN}"}
     
     # Prepare payload
     payload = {
@@ -187,27 +162,34 @@ def get_ai_response(question):
         }
     }
     
-    # Query model
-    result = query_model(payload)
+    try:
+        # Make the API request
+        response = requests.post(MODEL_URL, headers=HEADERS, json=payload)
+        
+        # Check if model is loading
+        if response.status_code == 503:
+            return "The model is still loading. Please try again in a few seconds."
+        
+        # Check for other errors
+        response.raise_for_status()
+        
+        # Parse the response
+        result = response.json()
+        
+        # Extract text from response
+        if isinstance(result, list) and len(result) > 0:
+            return result[0].get("generated_text", "Sorry, I couldn't generate a response")
+        else:
+            return "Sorry, I received an unexpected response format"
     
-    # Check for errors
-    if "error" in result:
-        return f"Sorry, I encountered an error: {result['error']}"
-    
-    # Extract response
-    if isinstance(result, list) and len(result) > 0:
-        # The API returns a list of generated texts
-        return result[0].get("generated_text", "Sorry, I couldn't generate a response")
-    else:
-        return "Sorry, I received an unexpected response format"
+    except requests.exceptions.RequestException as e:
+        return f"Network error: {str(e)}"
+    except json.JSONDecodeError:
+        return "Failed to parse API response"
+    except Exception as e:
+        return f"Error: {str(e)}"
 
-# Initialize session states
-if 'messages' not in st.session_state:
-    st.session_state.messages = []
-if 'new_message' not in st.session_state:
-    st.session_state.new_message = False
-
-# Display chat history with better styling
+# Display chat history
 for message in st.session_state.messages:
     if message["role"] == "user":
         st.markdown(f"""
@@ -222,54 +204,35 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-# Create the input form with a callback function
-def process_input():
-    if st.session_state.input.strip():
-        # Get user input from the session state
-        user_input = st.session_state.input
-        
-        # Add user message to chat history
-        st.session_state.messages.append({"role": "user", "content": user_input})
-        
-        # Get AI response
-        ai_response = get_ai_response(user_input)
-        
-        # Add AI response to chat history
-        st.session_state.messages.append({"role": "assistant", "content": ai_response})
-        
-        # Set flag to indicate new message was added
-        st.session_state.new_message = True
+# Create the input form - simplifying the structure
+user_input = st.text_input("Type your message:", key="user_message")
+send_button = st.button("Send")
 
-# Create the input form
-with st.form(key="chat_form", clear_on_submit=True):
-    # Text input
-    st.text_input(
-        "Type your message:", 
-        key="input",
-        help="Press Enter or click Send to submit your message"
-    )
+# Process the message when Send is clicked or Enter is pressed
+if send_button and user_input:
+    # Add user message to history first
+    st.session_state.messages.append({"role": "user", "content": user_input})
     
-    # Submit button
-    submit_button = st.form_submit_button("Send", on_click=process_input)
-
-# Create a placeholder for the spinning indicator
-spinner_placeholder = st.empty()
-
-# If a new message was added, show the spinner and reset the flag
-if st.session_state.new_message:
-    with spinner_placeholder:
-        with st.spinner("Processing..."):
-            # Small delay to ensure UI updates
-            time.sleep(0.1)
+    # Show a temporary message that the AI is thinking
+    ai_thinking_placeholder = st.empty()
+    ai_thinking_placeholder.markdown("""
+    <div class="message-container ai-message">
+        <strong>AI:</strong> <em>Thinking...</em>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Reset the flag
-    st.session_state.new_message = False
+    # Get AI response
+    ai_response = get_ai_response(user_input)
     
-    # Use the experimental rerun if available, otherwise just continue
-    try:
-        st.experimental_rerun()
-    except:
-        pass
+    # Add AI response to history
+    st.session_state.messages.append({"role": "assistant", "content": ai_response})
+    
+    # Replace thinking message with the actual response
+    ai_thinking_placeholder.empty()
+    
+    # Clear the input field by forcing a page rerun
+    st.session_state.user_message = ""
+    st.experimental_rerun()
 
 # Add information about the technology used
 with st.expander("About this GenAI Demo"):
