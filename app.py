@@ -75,6 +75,74 @@ def get_ai_response(question):
     else:
         return "Sorry, I received an unexpected response format"
 
+# Dark mode UI
+st.markdown("""
+<style>
+    body {
+        color: #FFFFFF;
+        background-color: #121212;
+    }
+    .main {
+        background-color: #121212;
+    }
+    .stTextInput > div > div > input {
+        background-color: #333333;
+        color: #FFFFFF;
+    }
+    .stButton > button {
+        background-color: #4F4F4F;
+        color: #FFFFFF;
+    }
+    .stButton > button:hover {
+        background-color: #666666;
+    }
+    .block-container {
+        max-width: 800px;
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    .css-18e3th9 {
+        background-color: #121212;
+    }
+    .css-1d391kg {
+        background-color: #121212;
+    }
+    .st-bb {
+        background-color: #333333;
+    }
+    .st-at {
+        background-color: #333333;
+    }
+    .st-af {
+        background-color: #121212;
+    }
+    p, h1, h2, h3, h4, h5, h6 {
+        color: #FFFFFF;
+    }
+    .streamlit-expanderHeader {
+        color: #FFFFFF;
+        background-color: #333333;
+    }
+    .streamlit-expanderContent {
+        background-color: #1E1E1E;
+        color: #FFFFFF;
+    }
+    .message-container {
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 10px;
+    }
+    .user-message {
+        background-color: #2C2C2C;
+        border-left: 5px solid #4CAF50;
+    }
+    .ai-message {
+        background-color: #1E1E1E;
+        border-left: 5px solid #2196F3;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Add a title and description
 st.title("🤖 GenAI Chatbot")
 st.write("""
@@ -86,21 +154,31 @@ It demonstrates integration with state-of-the-art AI technologies.
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 
-# Display chat history
+# Display chat history with better styling
 for message in st.session_state.messages:
     if message["role"] == "user":
-        st.markdown(f"**You:** {message['content']}")
+        st.markdown(f"""
+        <div class="message-container user-message">
+            <strong>You:</strong> {message['content']}
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        st.markdown(f"**AI:** {message['content']}")
-    st.markdown("---")
+        st.markdown(f"""
+        <div class="message-container ai-message">
+            <strong>AI:</strong> {message['content']}
+        </div>
+        """, unsafe_allow_html=True)
 
-# User input with form
-with st.form(key='chat_form', clear_on_submit=True):
-    user_input = st.text_input("Type your message:", key="user_message")
-    submit_button = st.form_submit_button("Send")
+# User input with form - note about Enter key
+user_input = st.text_input("Type your message:", key="user_message", 
+                          help="Press Enter to submit your message")
 
-# Process user input
-if submit_button and user_input:
+# Process user input - support for both Enter key and button
+send_button = st.button("Send")
+if (user_input and send_button) or (user_input and st.session_state.get('user_message') != user_input):
+    # Store current input to check against next time
+    current_input = user_input
+    
     # Add user message to chat history
     st.session_state.messages.append({"role": "user", "content": user_input})
     
@@ -111,8 +189,16 @@ if submit_button and user_input:
     # Add AI response to chat history
     st.session_state.messages.append({"role": "assistant", "content": ai_response})
     
-    # Rerun to update the display with new messages
-    st.rerun()
+    # Clear the input box by modifying session state
+    st.session_state.user_message = ""
+    
+    # Use experimental_rerun for compatibility with older Streamlit versions
+    try:
+        st.experimental_rerun()
+    except:
+        # If experimental_rerun is not available, don't do anything
+        # The page will still update with the new content
+        pass
 
 # Add information about the technology used
 with st.expander("About this GenAI Demo"):
@@ -132,21 +218,4 @@ with st.expander("About this GenAI Demo"):
     3. The interface displays the response in a conversational format
     
     This architecture allows for showcasing GenAI capabilities without the overhead of running models locally.
-    """)
-
-# Add custom CSS for styling
-st.markdown("""
-<style>
-.main {
-    background-color: #f5f5f5;
-}
-.stTextInput > div > div > input {
-    background-color: #f0f0f0;
-}
-.block-container {
-    max-width: 800px;
-    padding-top: 2rem;
-    padding-bottom: 2rem;
-}
-</style>
-""", unsafe_allow_html=True) 
+    """) 
