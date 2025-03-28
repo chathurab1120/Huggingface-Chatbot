@@ -1,5 +1,5 @@
 import streamlit as st
-from transformers import T5ForConditionalGeneration, T5Tokenizer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqGeneration
 import sys
 import logging
 
@@ -20,18 +20,16 @@ def load_model():
         
         # First try to load tokenizer
         logger.info("Loading tokenizer...")
-        tokenizer = T5Tokenizer.from_pretrained(
+        tokenizer = AutoTokenizer.from_pretrained(
             "google/flan-t5-small",
-            model_max_length=512,
-            legacy_format=True
+            use_fast=False  # Use the slow tokenizer which has fewer dependencies
         )
         
         # Then load model
         logger.info("Loading model...")
-        model = T5ForConditionalGeneration.from_pretrained(
+        model = AutoModelForSeq2SeqGeneration.from_pretrained(
             "google/flan-t5-small",
-            low_cpu_mem_usage=True,
-            return_dict=True
+            low_cpu_mem_usage=True
         )
         
         logger.info("Model and tokenizer loaded successfully")

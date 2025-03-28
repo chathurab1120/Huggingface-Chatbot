@@ -1,14 +1,18 @@
 name: huggingface_chatbot
 channels:
+  - pytorch
   - conda-forge
   - defaults
 dependencies:
   - python=3.9
   - pip
+  - pytorch-cpu=1.13.1
+  - torchvision-cpu=0.14.1
+  - numpy=1.23.5
   - pip:
     - streamlit==1.22.0
-    - huggingface-hub==0.13.0
-    - langchain==0.0.150
-    - transformers==4.28.1
+    - transformers==4.27.4
     - protobuf==3.20.0
-    - pydantic==1.10.2 
+    - sentencepiece==0.1.97
+    - accelerate==0.18.0
+    - sacremoses==0.0.53 
