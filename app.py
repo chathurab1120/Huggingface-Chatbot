@@ -204,10 +204,8 @@ def get_ai_response(question):
 # Initialize session states
 if 'messages' not in st.session_state:
     st.session_state.messages = []
-if 'input' not in st.session_state:
-    st.session_state.input = ""
-if 'submitted' not in st.session_state:
-    st.session_state.submitted = False
+if 'new_message' not in st.session_state:
+    st.session_state.new_message = False
 
 # Display chat history with better styling
 for message in st.session_state.messages:
@@ -224,42 +222,54 @@ for message in st.session_state.messages:
         </div>
         """, unsafe_allow_html=True)
 
-# Function to handle form submission (callback)
-def handle_submit():
-    st.session_state.submitted = True
+# Create the input form with a callback function
+def process_input():
+    if st.session_state.input.strip():
+        # Get user input from the session state
+        user_input = st.session_state.input
+        
+        # Add user message to chat history
+        st.session_state.messages.append({"role": "user", "content": user_input})
+        
+        # Get AI response
+        ai_response = get_ai_response(user_input)
+        
+        # Add AI response to chat history
+        st.session_state.messages.append({"role": "assistant", "content": ai_response})
+        
+        # Set flag to indicate new message was added
+        st.session_state.new_message = True
 
 # Create the input form
 with st.form(key="chat_form", clear_on_submit=True):
     # Text input
-    user_input = st.text_input(
+    st.text_input(
         "Type your message:", 
         key="input",
         help="Press Enter or click Send to submit your message"
     )
     
     # Submit button
-    submit_button = st.form_submit_button("Send", on_click=handle_submit)
+    submit_button = st.form_submit_button("Send", on_click=process_input)
 
-# Process the submission outside the form
-if st.session_state.submitted and st.session_state.input:
-    # Get the user input
-    current_input = st.session_state.input
+# Create a placeholder for the spinning indicator
+spinner_placeholder = st.empty()
+
+# If a new message was added, show the spinner and reset the flag
+if st.session_state.new_message:
+    with spinner_placeholder:
+        with st.spinner("Processing..."):
+            # Small delay to ensure UI updates
+            time.sleep(0.1)
     
-    # Add user message to chat history
-    st.session_state.messages.append({"role": "user", "content": current_input})
+    # Reset the flag
+    st.session_state.new_message = False
     
-    # Get AI response
-    with st.spinner("AI is thinking..."):
-        ai_response = get_ai_response(current_input)
-    
-    # Add AI response to chat history
-    st.session_state.messages.append({"role": "assistant", "content": ai_response})
-    
-    # Reset the submission flag
-    st.session_state.submitted = False
-    
-    # Force a rerun to update the chat display
-    st.rerun()
+    # Use the experimental rerun if available, otherwise just continue
+    try:
+        st.experimental_rerun()
+    except:
+        pass
 
 # Add information about the technology used
 with st.expander("About this GenAI Demo"):
